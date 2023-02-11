@@ -100,6 +100,9 @@ public class RoomPresenceModule
 			throw new ComponentException(Authorization.BAD_REQUEST);
 		}
 		BareJID channelJID = packet.getStanzaTo().getBareJID();
+		if (channelJID.getLocalpart() == null) {
+			throw new ComponentException(Authorization.BAD_REQUEST, "Channel JID `" + channelJID + "` must contain localpart!");
+		}
 		String nick = packet.getStanzaTo().getResource();
 		StanzaType type = Optional.ofNullable(packet.getType()).orElse(StanzaType.available);
 		try {
