@@ -79,6 +79,9 @@ public class DefaultMixLogic extends DefaultPubSubLogic
 	}
 
 	public String generateParticipantId(BareJID channelJID, BareJID participantRealJID) throws RepositoryException {
+		if (channelJID.getLocalpart() == null) {
+			throw new IllegalArgumentException("Channel JID `" + channelJID + "` must contain localpart!");
+		}
 		try {
 			MessageDigest md = MessageDigest.getInstance("SHA1");
 			md.update(channelJID.getDomain().getBytes(StandardCharsets.UTF_8));
@@ -92,6 +95,9 @@ public class DefaultMixLogic extends DefaultPubSubLogic
 
 	@Override
 	public String generateTempParticipantId(BareJID channelJID, JID participantRealJID) throws RepositoryException {
+		if (channelJID.getLocalpart() == null) {
+			throw new IllegalArgumentException("Channel JID `" + channelJID + "` must contain localpart!");
+		}
 		try {
 			MessageDigest md = MessageDigest.getInstance("SHA1");
 			md.update(channelJID.getDomain().getBytes(StandardCharsets.UTF_8));
