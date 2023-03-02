@@ -72,7 +72,7 @@ public class ChannelConfiguration {
 	private boolean participantsMustProvidePresence = false;
 	private boolean userMessageRetraction = false;
 	// should be owners
-	private ChannelNodePermission administratorMessageRetractionRights = ChannelNodePermission.nobody;
+	private ChannelNodePermission administratorMessageRetractionRights = ChannelNodePermission.owners;
 	private boolean participantAdditionByInvitation = false;
 	// should be true
 	private boolean privateMessages = true;
@@ -160,6 +160,14 @@ public class ChannelConfiguration {
 
 	public ChannelNodePermission getAvatarNodesUpdateRights() {
 		return avatarNodesUpdateRights;
+	}
+
+	public boolean isUserMessageRetraction() {
+		return userMessageRetraction;
+	}
+
+	public ChannelNodePermission getAdministratorMessageRetractionRights() {
+		return administratorMessageRetractionRights;
 	}
 
 	public Element toElement(String id) {
@@ -351,8 +359,8 @@ public class ChannelConfiguration {
 		if (participantsMustProvidePresence) {
 			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Support for presences is not implemented yet!");
 		}
-		if (userMessageRetraction || administratorMessageRetractionRights != ChannelNodePermission.nobody) {
-			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Message retraction is not supported!");
+		if (userMessageRetraction) {
+			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Message retraction by users is not supported!");
 		}
 		if (participantAdditionByInvitation) {
 			throw new PubSubException(Authorization.NOT_ACCEPTABLE,"Invitations are not supported!");
