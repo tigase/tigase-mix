@@ -21,6 +21,5 @@ public enum  MixAction {
 	manage,
 	publish,
 	join,
-	relay,
-	retract
+	relay
 }

@@ -233,17 +233,6 @@ public class DefaultMixLogic extends DefaultPubSubLogic
 					}
 				}
 				break;
-			case retract:
-				ChannelConfiguration configuration3 = mixRepository.getChannelConfiguration(channel);
-				if (configuration3 != null) {
-					if (!configuration3.isUserMessageRetraction()) {
-						switch (configuration3.getAdministratorMessageRetractionRights()) {
-							
-						}
-					}
-
-				}
-				break;
 		}
 	}
 
