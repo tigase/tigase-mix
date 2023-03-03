@@ -31,6 +31,7 @@ import tigase.mix.model.MixLogic;
 import tigase.pubsub.*;
 import tigase.pubsub.exceptions.PubSubException;
 import tigase.pubsub.repository.IItems;
+import tigase.pubsub.utils.IntegerOrMax;
 import tigase.server.Command;
 import tigase.server.DataForm;
 import tigase.server.Iq;
@@ -103,7 +104,7 @@ public class ChannelCreateModule extends AbstractPubSubModule {
 			getRepository().addToRootCollection(channelJID, Mix.Nodes.CONFIG);
 
 			config = new LeafNodeConfig(Mix.Nodes.PARTICIPANTS);
-			config.setValue(PUBSUB + "max_items", null);
+			config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
 			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
 			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
 			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
@@ -113,7 +114,7 @@ public class ChannelCreateModule extends AbstractPubSubModule {
 			getRepository().addToRootCollection(channelJID, Mix.Nodes.PARTICIPANTS);
 
 			config = new LeafNodeConfig(Mix.Nodes.MESSAGES);
-			config.setValue(PUBSUB + "max_items", null);
+			config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
 			config.setValue(PUBSUB + "pubsub#persist_items", false);
 			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
 			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
