@@ -15,15 +15,25 @@
  * along with this program. Look for COPYING file in the top folder.
  * If not, see http://www.gnu.org/licenses/.
  */
-package tigase.mix;
+package tigase.mix.adhoc;
 
+import tigase.kernel.beans.Inject;
+import tigase.mix.IMixComponent;
 import tigase.xmpp.jid.JID;
 
-public interface IMixComponent {
+public abstract class AbstractMIXAdhocCommand
+		extends AbstractAdhocCommand {
 
-	JID getComponentId();
+	@Inject
+	private IMixComponent component;
 
-	String getName();
+	protected AbstractMIXAdhocCommand(String node, String name) {
+		super(node, name);
+	}
 
-	boolean isAdmin(JID jid);
+	@Override
+	public boolean isAllowedFor(JID jid) {
+		return component.isAdmin(jid);
+	}
+
 }

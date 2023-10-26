@@ -23,6 +23,7 @@ import tigase.kernel.beans.Bean;
 import tigase.kernel.beans.Inject;
 import tigase.kernel.beans.config.ConfigField;
 import tigase.mix.IMixComponent;
+import tigase.component.modules.impl.AdHocCommandModule;
 import tigase.mix.model.IMixRepository;
 import tigase.mix.model.MixLogic;
 import tigase.pubsub.repository.IPubSubRepository;
@@ -43,8 +44,13 @@ import java.util.stream.Collectors;
 @Bean(name = tigase.pubsub.modules.DiscoveryModule.ID, parent = IMixComponent.class, active = true)
 public class DiscoveryModule extends tigase.pubsub.modules.DiscoveryModule {
 
-	private static final Set<String> FEATURES = Set.of("urn:xmpp:mix:core:1", "urn:xmpp:mix:core:1#searchable", DISCO_ITEMS_XMLNS, DISCO_INFO_XMLNS);
-	private static final Set<String> FEATURES_WITH_CREATE = Set.of("urn:xmpp:mix:core:1", "urn:xmpp:mix:core:1#searchable", "urn:xmpp:mix:core:1#create-channel", DISCO_ITEMS_XMLNS, DISCO_INFO_XMLNS);
+	private static final Set<String> FEATURES = Set.of("urn:xmpp:mix:core:1", "urn:xmpp:mix:core:1#searchable",
+													   DISCO_ITEMS_XMLNS, DISCO_INFO_XMLNS, AdHocCommandModule.XMLNS);
+	private static final Set<String> FEATURES_WITH_CREATE = Set.of("urn:xmpp:mix:core:1",
+																   "urn:xmpp:mix:core:1#searchable",
+																   "urn:xmpp:mix:core:1#create-channel",
+																   DISCO_ITEMS_XMLNS, AdHocCommandModule.XMLNS,
+																   DISCO_INFO_XMLNS);
 
 	@ConfigField(desc = "Allow disco#items for nodes without node attribute set")
 	private boolean allowDiscoitems = false;
@@ -60,6 +66,8 @@ public class DiscoveryModule extends tigase.pubsub.modules.DiscoveryModule {
 
 	@Inject(nullAllowed = true)
 	private RoomPresenceModule roomPresenceModule;
+	@Inject(nullAllowed = true)
+	private AdHocCommandModule adHocCommandModule;
 
 	@Override
 	public Set<String> getAvailableFeatures(BareJID serviceJID, String node, BareJID senderJID) {
@@ -188,7 +196,7 @@ public class DiscoveryModule extends tigase.pubsub.modules.DiscoveryModule {
 					return super.prepareDiscoItems(serviceJID, null, senderJID, rsm);
 				}
 			} else if ("mix".equals(nodeName)) {
-			    // for node "mix" we present "root" nodes
+				// for node "mix" we present "root" nodes
 				return super.prepareDiscoItems(serviceJID, null, senderJID, rsm);
 			} else {
 				// in any other case just use default

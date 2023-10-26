@@ -66,28 +66,31 @@ public class ChannelDestroyModule extends AbstractPubSubModule {
 			throw new PubSubException(Authorization.BAD_REQUEST);
 		}
 
+		BareJID sender = packet.getStanzaFrom().getBareJID();
 		BareJID channelJID = BareJID.bareJIDInstanceNS(channel, packet.getStanzaTo().getDomain());
 
 		try {
-			mixLogic.checkPermission(channelJID, packet.getStanzaFrom().getBareJID(), MixAction.manage);
-
-//			// do we really need that? removing service should be enough...
-			String[] nodes = getRepository().getRootCollection(channelJID);
-			if (nodes != null) {
-				for (String node : nodes) {
-					AbstractNodeConfig config = getRepository().getNodeConfig(channelJID, node);
-					if (config != null) {
-						Element del = new Element("delete", new String[]{"node"}, new String[]{node});
-						this.publishModule.generateNodeNotifications(channelJID, node, del, null, false);
-					}
-				}
-			}
-			getRepository().deleteService(channelJID);
-
+			mixLogic.checkPermission(channelJID, sender, MixAction.manage);
+			destroyChannel(channelJID);
 			packetWriter.write(packet.okResult((Element) null,  0));
 		} catch (RepositoryException ex) {
 			throw new PubSubException(Authorization.INTERNAL_SERVER_ERROR, null, ex);
 		}
+	}
+
+	public void destroyChannel(BareJID channelJID) throws RepositoryException, PubSubException {
+//			// do we really need that? removing service should be enough...
+		String[] nodes = getRepository().getRootCollection(channelJID);
+		if (nodes != null) {
+			for (String node : nodes) {
+				AbstractNodeConfig config = getRepository().getNodeConfig(channelJID, node);
+				if (config != null) {
+					Element del = new Element("delete", new String[]{"node"}, new String[]{node});
+					this.publishModule.generateNodeNotifications(channelJID, node, del, null, false);
+				}
+			}
+		}
+		getRepository().deleteService(channelJID);
 	}
 
 }
