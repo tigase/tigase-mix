@@ -33,7 +33,10 @@ public interface IMixRepository {
 	IParticipant getParticipant(BareJID channelJID, BareJID participantJID) throws RepositoryException;
 	IParticipant getParticipant(BareJID channelJID, String participantId) throws RepositoryException;
 
-	void removeParticiapnt(BareJID channelJID, BareJID participantJID) throws RepositoryException;
+	List<String> getParticipantIds(BareJID channelJID) throws RepositoryException;
+
+	void removeParticipant(BareJID channelJID, BareJID participantJID) throws RepositoryException;
+	void removeParticipant(BareJID channelJID, String participantId) throws RepositoryException;
 
 	IParticipant updateParticipant(BareJID channelJID, BareJID participantJID, String nick) throws RepositoryException,
 																								   PubSubException;
@@ -42,6 +45,9 @@ public interface IMixRepository {
 
 	void removeTempParticipant(BareJID channelJID, JID participantJID) throws RepositoryException;
 
+	JID getTempParticipantJID(BareJID serviceJID, String participantId) throws RepositoryException;
+	BareJID getParticipantJidFromJidMap(BareJID service, String participantId) throws RepositoryException;
+	
 	Optional<List<BareJID>> getAllowed(BareJID channelJID) throws RepositoryException;
 	Optional<List<BareJID>> getBanned(BareJID channelJID) throws RepositoryException;
 

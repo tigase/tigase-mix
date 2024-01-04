@@ -43,6 +43,7 @@ import tigase.xmpp.mam.MAMRepository;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Bean(name="channelGroupChatMessageModule", parent = IMixComponent.class, active = true)
@@ -145,7 +146,11 @@ public class ChannelGroupChatMessageModule extends AbstractPubSubModule {
 				mix.withElement("nick", null, participant.getNick());
 			}
 			if (participant.getRealJid() != null) {
-				mix.withElement("jid", null, participant.getRealJid().toString());
+				if (Optional.ofNullable(mixRepository.getChannelConfiguration(channelJID))
+						.filter(config -> config.getJidVisibility() == JIDVisibility.visible)
+						.isPresent()) {
+					mix.withElement("jid", null, participant.getRealJid().toString());
+				}
 			}
 			message.addChild(mix);
 			message.addChild((new Element("stanza-id", new String[]{"xmlns", "id", "by"},

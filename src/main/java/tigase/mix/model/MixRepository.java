@@ -96,6 +96,18 @@ public class MixRepository<T> implements IMixRepository, IPubSubRepository.IList
 				.map(strings -> Arrays.stream(strings).map(BareJID::bareJIDInstanceNS).collect(Collectors.toList()));
 	}
 
+	public List<String> getParticipantIds(BareJID channelJID) throws RepositoryException {
+		IItems items = pubSubRepository.getNodeItems(channelJID, Mix.Nodes.PARTICIPANTS);
+		if (items == null) {
+			return Collections.emptyList();
+		}
+		String[] participantIds = items.getItemsIds(CollectionItemsOrdering.byUpdateDate);
+		if (participantIds == null) {
+			return Collections.emptyList();
+		}
+		return Arrays.asList(participantIds);
+	}
+
 	@Override
 	public IParticipant getParticipant(BareJID channelJID, BareJID participantRealJID) throws RepositoryException {
 		String participantId = mixLogic.generateParticipantId(channelJID, participantRealJID);
@@ -130,57 +142,87 @@ public class MixRepository<T> implements IMixRepository, IPubSubRepository.IList
 	}
 
 	@Override
-	public void removeParticiapnt(BareJID channelJID, BareJID participantJID) throws RepositoryException {
+	public void removeParticipant(BareJID channelJID, BareJID participantJID) throws RepositoryException {
 		String id = mixLogic.generateParticipantId(channelJID, participantJID);
-		retractItemModule.retractItems(channelJID, "urn:xmpp:mix:nodes:participants",
-									   Collections.singletonList(id));
-		participants.remove(new ParticipantKey(channelJID, id));
+		removeParticipant(channelJID, id);
+	}
+
+	@Override
+	public void removeParticipant(BareJID channelJID, String participantId) throws RepositoryException {
+		retractItemModule.retractItems(channelJID, Mix.Nodes.PARTICIPANTS, Collections.singletonList(participantId));
+		participants.remove(new ParticipantKey(channelJID, participantId));
 	}
 
 	@Override
 	public IParticipant updateParticipant(BareJID channelJID, BareJID participantJID, String nick)
 			throws RepositoryException, PubSubException {
-		Participant participant = new Participant(mixLogic.generateParticipantId(channelJID, participantJID), participantJID,
-												   nick);
-		Element itemEl = new Element("item");
-		itemEl.setAttribute("id", participant.getParticipantId());
-		itemEl.addChild(participant.toElement());
-
-		publishItemModule.publishItems(channelJID, Mix.Nodes.PARTICIPANTS, JID.jidInstance(participantJID),
-									   Collections.singletonList(itemEl), null);
-
-		participants.put(new ParticipantKey(channelJID, participant.getParticipantId()), participant);
-
-		return participant;
+		return updateParticipant(channelJID, mixLogic.generateParticipantId(channelJID, participantJID), participantJID, nick);
 	}
 
 	@Override
 	public IParticipant updateTempParticipant(BareJID channelJID, JID participantJID, String nick)
 			throws RepositoryException, PubSubException {
-		Participant participant = new Participant(mixLogic.generateTempParticipantId(channelJID, participantJID), participantJID.getBareJID(),
-												  nick);
+
+		Participant participant = updateParticipant(channelJID, mixLogic.generateTempParticipantId(channelJID, participantJID), participantJID.getBareJID(), nick);
+
 		Element itemEl = new Element("item");
 		itemEl.setAttribute("id", participant.getParticipantId());
-		Element participantEl = participant.toElement();
-		participantEl.addChild(new Element("resource", participantJID.getResource()).withAttribute("xmlns", "tigase:mix:muc:0"));
-		itemEl.addChild(participantEl);
+		itemEl.withElement("muc-participant", "tigase:mix:muc:0", mucParticipant -> {
+			mucParticipant.addAttribute("jid", participantJID.toString());
+		});
+		publishItemModule.publishItems(channelJID, Mix.Nodes.PARTICIPANTS_MUC, participantJID,
+									   Collections.singletonList(itemEl), null);
+		
+		return participant;
+	}
 
-		publishItemModule.publishItems(channelJID, Mix.Nodes.PARTICIPANTS, participantJID,
+	protected Participant updateParticipant(BareJID channelJID, String participantId, BareJID participantJID, String nick)
+			throws PubSubException, RepositoryException {
+		ChannelConfiguration config = getChannelConfiguration(channelJID);
+		boolean hideJid = config != null && config.getJidVisibility() == JIDVisibility.hidden;
+		Participant participant = new Participant(participantId, hideJid ? null : participantJID, nick);
+		Element itemEl = new Element("item");
+		itemEl.setAttribute("id", participant.getParticipantId());
+		itemEl.addChild(participant.toElement());
+
+		if (hideJid) {
+			updateJidMap(channelJID, participantId, participantJID);
+		}
+
+		publishItemModule.publishItems(channelJID, Mix.Nodes.PARTICIPANTS, JID.jidInstance(participantJID),
 									   Collections.singletonList(itemEl), null);
 
 		participants.put(new ParticipantKey(channelJID, participant.getParticipantId()), participant);
-
 		return participant;
 	}
 
 	@Override
 	public void removeTempParticipant(BareJID channelJID, JID participantJID) throws RepositoryException {
 		String id = mixLogic.generateTempParticipantId(channelJID, participantJID);
-		retractItemModule.retractItems(channelJID, "urn:xmpp:mix:nodes:participants",
-									   Collections.singletonList(id));
-		participants.remove(new ParticipantKey(channelJID, id));
+		removeParticipant(channelJID, id);
+		retractItemModule.retractItems(channelJID, Mix.Nodes.PARTICIPANTS_MUC, Collections.singletonList(id));
 	}
-
+	public JID getTempParticipantJID(BareJID serviceJID, String participantId) throws RepositoryException {
+		IItems items = pubSubRepository.getNodeItems(serviceJID, Mix.Nodes.PARTICIPANTS_MUC);
+		if (items == null) {
+			return null;
+		}
+		IItems.IItem item = items.getItem(participantId);
+		if (item == null) {
+			return null;
+		}
+		Element mucParticipant = item.getItem().getChild("muc-participant", "tigase:mix:muc:0");
+		if (mucParticipant == null) {
+			return null;
+		}
+		Element jidEl = mucParticipant.getChild("jid");
+		if (jidEl == null) {
+			return null;
+		}
+		String jidStr = jidEl.getCData();
+		return jidStr == null ? null : JID.jidInstanceNS(jidStr);
+	}
+	
 	public String getChannelName(BareJID channelJID) throws RepositoryException {
 		IItems items = pubSubRepository.getNodeItems(channelJID, Mix.Nodes.INFO);
 		if (items != null) {
@@ -380,7 +422,7 @@ public class MixRepository<T> implements IMixRepository, IPubSubRepository.IList
 
 	protected void bannedParticipantFromChannel(BareJID channelJID, BareJID participantJID) throws RepositoryException {
 		if (getParticipant(channelJID, participantJID) != null) {
-			removeParticiapnt(channelJID, participantJID);
+			removeParticipant(channelJID, participantJID);
 			Map<String, UsersSubscription> userSubscriptions = pubSubRepository.getUserSubscriptions(channelJID,
 																									 participantJID);
 			for (String node : userSubscriptions.keySet()) {
@@ -391,17 +433,84 @@ public class MixRepository<T> implements IMixRepository, IPubSubRepository.IList
 		}
 	}
 
-	protected void invalidateChannelParticipant(BareJID channelJID, BareJID participantId) throws RepositoryException {
-		participants.remove(new ParticipantKey(channelJID, mixLogic.generateParticipantId(channelJID, participantId)));
+	protected void invalidateChannelParticipant(BareJID channelJID, String participantId) throws RepositoryException {
+		participants.remove(new ParticipantKey(channelJID, participantId));
 	}
 
 	protected void updateChannelConfiguration(BareJID serviceJID, Element item) {
 		try {
 			ChannelConfiguration configuration = new ChannelConfiguration(item);
-			channelConfigs.put(serviceJID, configuration);
-		} catch (PubSubException ex) {
-			log.log(Level.WARNING, "Could not parse new configuration of channel " + serviceJID, ex);
+			ChannelConfiguration oldConfiguration = channelConfigs.put(serviceJID, configuration);
+			if (oldConfiguration != null && oldConfiguration.getJidVisibility() != configuration.getJidVisibility()) {
+				jidVisibilityChanged(serviceJID, oldConfiguration.getJidVisibility(), configuration.getJidVisibility());
+			}
+		} catch (PubSubException|RepositoryException ex) {
+			log.log(Level.WARNING, "Could not update configuration of channel " + serviceJID, ex);
 		}
+	}
+	
+	protected synchronized void jidVisibilityChanged(BareJID serviceJID, JIDVisibility oldValue, JIDVisibility newValue)
+			throws RepositoryException, PubSubException {
+		if (oldValue == JIDVisibility.visible && newValue == JIDVisibility.hidden) {
+			List<String> participantIds = getParticipantIds(serviceJID);
+			for (String participantId : participantIds) {
+				IParticipant participant = getParticipant(serviceJID, participantId);
+				if (participant.getRealJid() != null) {
+					updateParticipant(serviceJID, participantId, participant.getRealJid(), participant.getNick());
+				}
+			}
+		} else if (oldValue == JIDVisibility.hidden && newValue == JIDVisibility.visible) {
+			List<String> participantIds = getParticipantIds(serviceJID);
+			for (String participantId : participantIds) {
+				IParticipant participant = getParticipant(serviceJID, participantId);
+				if (participant.getRealJid() == null) {
+					BareJID jid = getParticipantJidFromJidMap(serviceJID, participantId);
+					if (jid != null) {
+						updateParticipant(serviceJID, participantId, jid, participant.getNick());
+					}
+				}
+			}
+			removeJidMap(serviceJID, participantIds);
+		}
+	}
+
+	public BareJID getParticipantJidFromJidMap(BareJID service, String participantId) throws RepositoryException {
+		IItems items = pubSubRepository.getNodeItems(service, Mix.Nodes.JIDMAP);
+		if (items == null) {
+			return null;
+		}
+		IItems.IItem item = items.getItem(participantId);
+		if (item == null) {
+			return null;
+		}
+		Element participantEl = item.getItem().getChild("participant", Mix.ANON0_XMLNS);
+		if (participantEl == null) {
+			return null;
+		}
+		Element jidEl = participantEl.getChild("jid");
+		if (jidEl == null) {
+			return null;
+		}
+		String jid = jidEl.getCData();
+		return jid == null ? null : BareJID.bareJIDInstanceNS(jid);
+	}
+
+	protected void updateJidMap(BareJID serviceJID, String participantId, BareJID realJid)
+			throws PubSubException, RepositoryException {
+		if (realJid == null) {
+			return;
+		}
+		
+		Element itemEl = new Element("item");
+		itemEl.setAttribute("id", participantId);
+		itemEl.withElement("participant", Mix.ANON0_XMLNS, participantEl -> {
+			participantEl.withElement("jid", null, realJid.toString());
+		});
+		publishItemModule.publishItems(serviceJID, Mix.Nodes.JIDMAP, JID.jidInstance(serviceJID), Collections.singletonList(itemEl), null);
+	}
+
+	protected void removeJidMap(BareJID serviceJID, List<String> participantIds) throws RepositoryException {
+		retractItemModule.retractItems(serviceJID, Mix.Nodes.JIDMAP, participantIds);
 	}
 
 	protected static class ParticipantKey {

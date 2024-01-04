@@ -80,7 +80,7 @@ public class ChannelLeaveModule extends AbstractPubSubModule {
 			}
 
 			IParticipant participant = (roomPresenceModule != null) ? mixRepository.getParticipant(channelJID, senderJID) : null;
-			mixRepository.removeParticiapnt(channelJID, senderJID);
+			mixRepository.removeParticipant(channelJID, senderJID);
 
 			packetWriter.write(packet.okResult((Element) null, 1));
 

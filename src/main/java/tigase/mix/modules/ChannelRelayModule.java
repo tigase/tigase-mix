@@ -23,10 +23,7 @@ import tigase.criteria.Criteria;
 import tigase.kernel.beans.Bean;
 import tigase.kernel.beans.Inject;
 import tigase.mix.IMixComponent;
-import tigase.mix.model.IParticipant;
-import tigase.mix.model.MixAction;
-import tigase.mix.model.MixLogic;
-import tigase.mix.model.MixRepository;
+import tigase.mix.model.*;
 import tigase.pubsub.AbstractPubSubModule;
 import tigase.pubsub.exceptions.PubSubException;
 import tigase.server.Packet;
@@ -105,11 +102,18 @@ public class ChannelRelayModule extends AbstractPubSubModule {
 				throw new PubSubException(Authorization.ITEM_NOT_FOUND );
 			}
 
+			BareJID recipientJID =
+					mixRepository.getChannelConfiguration(channelJID).getJidVisibility() == JIDVisibility.hidden
+					? mixRepository.getParticipantJidFromJidMap(channelJID, recipientId)
+					: recipient.getRealJid();
+			if (recipientJID == null) {
+				throw new PubSubException(Authorization.ITEM_NOT_FOUND);
+			}
 
 			Packet forward = packet.copyElementOnly();
 			forward.initVars(JID.jidInstanceNS(
 					sender.getParticipantId() + "#" + channelJID.getLocalpart(), channelJID.getDomain(),
-					packet.getStanzaFrom().getResource()), JID.jidInstanceNS(recipient.getRealJid(),
+					packet.getStanzaFrom().getResource()), JID.jidInstanceNS(recipientJID,
 																			 packet.getStanzaTo().getResource()));
 			packetWriter.write(forward);
 		} catch (RepositoryException ex) {

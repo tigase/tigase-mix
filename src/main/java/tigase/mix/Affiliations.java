@@ -86,6 +86,12 @@ public class Affiliations implements IAffiliationsCached {
 				return new UsersAffiliation(jid, Affiliation.none);
 			}
 			switch (nodeName) {
+				case Mix.Nodes.JIDMAP:
+					if (channelConfiguration.isAdministrator(jid) || channelConfiguration.isOwner(jid)) {
+						return new UsersAffiliation(jid, Affiliation.member);
+					} else {
+						return new UsersAffiliation(jid, Affiliation.none);
+					}
 				case Mix.Nodes.CONFIG:
 					switch (channelConfiguration.getConfigurationNodeAccess()) {
 						case participants:

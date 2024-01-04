@@ -74,6 +74,7 @@ public class ChannelConfiguration {
 	// should be owners
 	private ChannelNodePermission administratorMessageRetractionRights = ChannelNodePermission.owners;
 	private boolean participantAdditionByInvitation = false;
+	private JIDVisibility jidVisibility = JIDVisibility.visible;
 	// should be true
 	private boolean privateMessages = true;
 	private boolean mandatoryNicks = true;
@@ -160,6 +161,10 @@ public class ChannelConfiguration {
 
 	public ChannelNodePermission getAvatarNodesUpdateRights() {
 		return avatarNodesUpdateRights;
+	}
+
+	public JIDVisibility getJidVisibility() {
+		return jidVisibility;
 	}
 
 	public boolean isUserMessageRetraction() {
@@ -249,6 +254,10 @@ public class ChannelConfiguration {
 					.setValue(administratorMessageRetractionRights.name()).build();
 			builder.addField(DataForm.FieldType.Boolean, "Participation Addition by Invitation from Participant")
 					.setValue(participantAdditionByInvitation).build();
+			builder.addField(DataForm.FieldType.ListSingle, "JID Visibility")
+					.setOptions(JIDVisibility.getOptionValues(), JIDVisibility.getOptionLabels())
+					.setValue(jidVisibility.getValue())
+					.build();
 			builder.addField(DataForm.FieldType.Boolean, "Private Messages")
 					.setValue(privateMessages).build();
 			builder.addField(DataForm.FieldType.Boolean, "Mandatory Nicks")
@@ -331,6 +340,7 @@ public class ChannelConfiguration {
 		participantAdditionByInvitation = getBoolFromField(form,
 														   "Participation Addition by Invitation from Participant",
 														   participantAdditionByInvitation);
+		jidVisibility = getJIDVisibilityFromField(form, "JID Visibility", jidVisibility);
 		privateMessages = getBoolFromField(form, "Private Messages", privateMessages);
 		mandatoryNicks = getBoolFromField(form, "Mandatory Nicks", mandatoryNicks);
 
@@ -350,8 +360,8 @@ public class ChannelConfiguration {
 		if (owners.isEmpty()) {
 			throw new PubSubException(Authorization.NOT_ALLOWED, "There MUST be at least one channel owner!");
 		}
-		if (Arrays.stream(nodesPresent).anyMatch(node -> "presence".equals(node) || "jidmap-visible".equals(node))) {
-			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Only participants and information nodes are supported!");
+		if (Arrays.asList(nodesPresent).contains("presence")) {
+			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Only participants, information, and jidmap nodes are supported!");
 		}
 		if (openPresence) {
 			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Open Presence is not supported!");
@@ -364,6 +374,9 @@ public class ChannelConfiguration {
 		}
 		if (participantAdditionByInvitation) {
 			throw new PubSubException(Authorization.NOT_ACCEPTABLE,"Invitations are not supported!");
+		}
+		if (jidVisibility == JIDVisibility.maybeVisible) {
+			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Support for JID Maybe Visible is not implemented yet!");
 		}
 	}
 
@@ -408,6 +421,27 @@ public class ChannelConfiguration {
 		
 		String value = getFieldValue(field);
 		return "true".equals(value) || "1".equals(value);
+	}
+
+	private static JIDVisibility getJIDVisibilityFromField(Element form, String fieldName, JIDVisibility defValue)
+			throws PubSubException {
+		Element field = getField(form, fieldName);
+		if (field == null) {
+			return defValue;
+		}
+		String value = getFieldValue(field);
+		if (value == null) {
+			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Missing value for field " + fieldName);
+		}
+		value = value.trim();
+		if (value.isEmpty()) {
+			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Missing value for field " + fieldName);
+		}
+		try {
+			return JIDVisibility.parse(value);
+		} catch (IllegalArgumentException ex) {
+			throw new PubSubException(Authorization.NOT_ACCEPTABLE, "Invalid value 'value' for field " + fieldName);
+		}
 	}
 
 	private static ChannelNodePermission getPermissionFromField(Element form, String fieldName, List<ChannelNodePermission> acceptedValues, ChannelNodePermission defValue) throws PubSubException {

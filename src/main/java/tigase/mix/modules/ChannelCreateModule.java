@@ -164,7 +164,27 @@ public class ChannelCreateModule extends AbstractPubSubModule {
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.AVATAR_METADATA);
 
-		channelConfig.setNodesPresent(new String[] {"participants", "information", "avatar"});
+		config = new LeafNodeConfig(Mix.Nodes.JIDMAP);
+		config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
+		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+		config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+		getRepository().createNode(channelJID, Mix.Nodes.JIDMAP, owner,
+								   config, NodeType.leaf, null);
+		getRepository().addToRootCollection(channelJID, Mix.Nodes.JIDMAP);
+
+		config = new LeafNodeConfig(Mix.Nodes.PARTICIPANTS_MUC);
+		config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
+		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+		config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+		getRepository().createNode(channelJID, Mix.Nodes.JIDMAP, owner,
+								   config, NodeType.leaf, null);
+		getRepository().addToRootCollection(channelJID, Mix.Nodes.PARTICIPANTS_MUC);
+
+		channelConfig.setNodesPresent(new String[] {"participants", "information", "avatar", "jidmap-visible"});
 		IItems nodeItems = getRepository().getNodeItems(channelJID, Mix.Nodes.CONFIG);
 		String configItemId = timestampHelper.format(new Date());
 		nodeItems.writeItem(configItemId, owner.toString(), channelConfig.toElement(configItemId), null);

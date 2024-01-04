@@ -26,6 +26,7 @@ public class Mix {
 
 	public static final String CORE1_XMLNS = "urn:xmpp:mix:core:1";
 	public static final String ADMIN0_XMLNS = "urn:xmpp:mix:admin:0";
+	public static final String ANON0_XMLNS = "urn:xmpp:mix:anon:0";
 
 	public static class Nodes {
 		public static final String ALLOWED = "urn:xmpp:mix:nodes:allowed";
@@ -38,8 +39,11 @@ public class Mix {
 		public static final String AVATAR_METADATA = "urn:xmpp:avatar:metadata";
 		public static final String AVATAR_DATA = "urn:xmpp:avatar:data";
 
+		public static final String JIDMAP = "urn:xmpp:mix:nodes:jidmap";
+		public static final String PARTICIPANTS_MUC = "tigase:mix:muc";
+
 		public static final Set<String> ALL_NODES = Collections.unmodifiableSet(
-				Stream.of(Mix.Nodes.CONFIG, Mix.Nodes.INFO, Mix.Nodes.MESSAGES, Mix.Nodes.PARTICIPANTS, ALLOWED, BANNED, AVATAR_DATA, AVATAR_METADATA).collect(
+				Stream.of(Mix.Nodes.CONFIG, Mix.Nodes.INFO, Mix.Nodes.MESSAGES, Mix.Nodes.PARTICIPANTS, ALLOWED, BANNED, AVATAR_DATA, AVATAR_METADATA, JIDMAP, PARTICIPANTS_MUC).collect(
 						Collectors.toSet()));
 	}
 

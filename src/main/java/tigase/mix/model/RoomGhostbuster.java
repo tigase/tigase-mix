@@ -20,12 +20,10 @@ package tigase.mix.model;
 import tigase.component.ScheduledTask;
 import tigase.component.exceptions.RepositoryException;
 import tigase.eventbus.EventBus;
+import tigase.eventbus.EventBusEvent;
 import tigase.kernel.beans.Bean;
 import tigase.kernel.beans.Inject;
-import tigase.mix.Mix;
 import tigase.mix.modules.RoomPresenceModule;
-import tigase.pubsub.CollectionItemsOrdering;
-import tigase.pubsub.repository.IItems;
 import tigase.pubsub.repository.IPubSubRepository;
 import tigase.server.AbstractMessageReceiver;
 import tigase.server.Packet;
@@ -65,6 +63,8 @@ public class RoomGhostbuster
 	private GhostbusterFilter filter;
 	@Inject
 	private EventBus eventBus;
+	@Inject
+	private IMixRepository mixRepository;
 	@Inject
 	private IPubSubRepository pubSubRepository;
 	@Inject
@@ -139,38 +139,21 @@ public class RoomGhostbuster
 									BareJID.bareJIDInstanceNS(null, component.getName() + "." + vhost.getDomain()), null);
 							if (channels != null) {
 								for (BareJID channel : channels) {
-									IItems items = pubSubRepository.getNodeItems(channel, Mix.Nodes.PARTICIPANTS);
-									if (items != null) {
-										String[] ids = items.getItemsIds(CollectionItemsOrdering.byUpdateDate);
-										if (ids != null) {
-											Set<String> participantIds = roomPresenceRepository.getRoomParticipantsIds(channel);
-											for (String id : ids) {
-												if (!id.startsWith("temp-")) {
-													continue;
-												}
-												if (participantIds.contains(id)) {
-													continue;
-												}
+									List<String> participantIds = mixRepository.getParticipantIds(channel);
+									Set<String> currentParticipantIds = roomPresenceRepository.getRoomParticipantsIds(channel);
+									for (String id : participantIds) {
+										if (!id.startsWith("temp-")) {
+											continue;
+										}
+										if (currentParticipantIds.contains(id)) {
+											continue;
+										}
 
-												IItems.IItem item = items.getItem(id);
-												if (item != null) {
-													Element participantEl = item.getItem()
-															.getChild("participant", Mix.CORE1_XMLNS);
-													if (participantEl != null) {
-														String jid = participantEl.getChildCData(el -> el.getName() == "jid");
-														String resource = participantEl.getChildCData(
-																el -> el.getName() == "resource" &&
-																		el.getXMLNS() == "tigase:mix:muc:0");
-														if (jid != null && resource != null) {
-															eventBus.fire(new KickoutEvent(component.getName(), channel,
-																						   JID.jidInstanceNS(
-																								   BareJID.bareJIDInstanceNS(
-																										   jid),
-																								   resource)));
-														}
-													}
-												}
-											}
+										JID jid = mixRepository.getTempParticipantJID(channel, id);
+										if (jid != null) {
+											eventBus.fire(new KickoutEvent(component.getName(), channel, jid));
+										} else {
+											mixRepository.removeParticipant(channel, id);
 										}
 									}
 								}
@@ -320,7 +303,7 @@ public class RoomGhostbuster
 		boolean shouldSendPing(JID recipient);
 	}
 
-	public class KickoutEvent {
+	public static class KickoutEvent implements EventBusEvent {
 
 		private final String componentName;
 		private final BareJID channelJID;
