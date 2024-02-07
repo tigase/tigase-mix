@@ -180,7 +180,7 @@ public class ChannelCreateModule extends AbstractPubSubModule {
 		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
 		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
 		config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
-		getRepository().createNode(channelJID, Mix.Nodes.JIDMAP, owner,
+		getRepository().createNode(channelJID, Mix.Nodes.PARTICIPANTS_MUC, owner,
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.PARTICIPANTS_MUC);
 
