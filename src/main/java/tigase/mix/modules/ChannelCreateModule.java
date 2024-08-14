@@ -28,10 +28,11 @@ import tigase.mix.Mix;
 import tigase.mix.model.ChannelConfiguration;
 import tigase.mix.model.MixAction;
 import tigase.mix.model.MixLogic;
-import tigase.pubsub.*;
+import tigase.pubsub.AbstractPubSubModule;
+import tigase.pubsub.LeafNodeConfig;
+import tigase.pubsub.NodeType;
 import tigase.pubsub.exceptions.PubSubException;
 import tigase.pubsub.repository.IItems;
-import tigase.pubsub.utils.IntegerOrMax;
 import tigase.server.Command;
 import tigase.server.DataForm;
 import tigase.server.Iq;
@@ -40,14 +41,11 @@ import tigase.util.datetime.TimestampHelper;
 import tigase.util.stringprep.TigaseStringprepException;
 import tigase.xml.Element;
 import tigase.xmpp.Authorization;
-import tigase.xmpp.StanzaType;
 import tigase.xmpp.jid.BareJID;
 
 import java.util.Collections;
 import java.util.Date;
 import java.util.UUID;
-
-import static tigase.pubsub.AbstractNodeConfig.PUBSUB;
 
 @Bean(name="channelCreateModule", parent = IMixComponent.class, active = true)
 public class ChannelCreateModule extends AbstractPubSubModule {
@@ -94,7 +92,7 @@ public class ChannelCreateModule extends AbstractPubSubModule {
 			throw new PubSubException(Authorization.INTERNAL_SERVER_ERROR, null, ex);
 		}
 	}
-
+	
 	public void createChannel(BareJID channelJID, BareJID owner, boolean isAdHoc)
 			throws PubSubException, RepositoryException {
 		if (getRepository().getNodeConfig(channelJID, Mix.Nodes.CONFIG) != null) {
@@ -105,81 +103,42 @@ public class ChannelCreateModule extends AbstractPubSubModule {
 		ChannelConfiguration channelConfig = new ChannelConfiguration();
 		channelConfig.setLastChangeMadeBy(owner);
 		channelConfig.setOwners(Collections.singleton(owner));
-		LeafNodeConfig config = new LeafNodeConfig(Mix.Nodes.CONFIG);
-		config.setValue(PUBSUB + "max_items", "1");
-		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
-		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
-		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+		LeafNodeConfig config = Mix.Nodes.getDefaultNodeConfig(Mix.Nodes.CONFIG);
 		getRepository().createNode(channelJID, Mix.Nodes.CONFIG, owner,
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.CONFIG);
 
-		config = new LeafNodeConfig(Mix.Nodes.PARTICIPANTS);
-		config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
-		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
-		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
-		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
-		config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+		config = Mix.Nodes.getDefaultNodeConfig(Mix.Nodes.PARTICIPANTS);
 		getRepository().createNode(channelJID, Mix.Nodes.PARTICIPANTS, owner,
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.PARTICIPANTS);
 
-		config = new LeafNodeConfig(Mix.Nodes.MESSAGES);
-		config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
-		config.setValue(PUBSUB + "pubsub#persist_items", false);
-		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
-		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
-		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
-		config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+		config = Mix.Nodes.getDefaultNodeConfig(Mix.Nodes.MESSAGES);
 		getRepository().createNode(channelJID, Mix.Nodes.MESSAGES, owner,
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.MESSAGES);
 
-		config = new LeafNodeConfig(Mix.Nodes.INFO);
-		config.setValue(PUBSUB + "max_items", "1");
-		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
-		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
-		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
-		config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+		config = Mix.Nodes.getDefaultNodeConfig(Mix.Nodes.INFO);
 		getRepository().createNode(channelJID, Mix.Nodes.INFO, owner,
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.INFO);
 
-		config = new LeafNodeConfig(Mix.Nodes.AVATAR_DATA);
-		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
-		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
-		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
-		config.setValue(PUBSUB + "notification_type", StanzaType.headline.name());
+		config = Mix.Nodes.getDefaultNodeConfig(Mix.Nodes.AVATAR_DATA);
 		getRepository().createNode(channelJID, Mix.Nodes.AVATAR_DATA, owner,
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.AVATAR_DATA);
 
-		config = new LeafNodeConfig(Mix.Nodes.AVATAR_METADATA);
-		config.setValue(PUBSUB + "max_items", "1");
-		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
-		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
-		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
-		config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+		config = Mix.Nodes.getDefaultNodeConfig(Mix.Nodes.AVATAR_METADATA);
 		getRepository().createNode(channelJID, Mix.Nodes.AVATAR_METADATA, owner,
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.AVATAR_METADATA);
 
-		config = new LeafNodeConfig(Mix.Nodes.JIDMAP);
-		config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
-		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
-		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
-		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
-		config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+		config = Mix.Nodes.getDefaultNodeConfig(Mix.Nodes.JIDMAP);
 		getRepository().createNode(channelJID, Mix.Nodes.JIDMAP, owner,
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.JIDMAP);
 
-		config = new LeafNodeConfig(Mix.Nodes.PARTICIPANTS_MUC);
-		config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
-		config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
-		config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
-		config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
-		config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+		config = Mix.Nodes.getDefaultNodeConfig(Mix.Nodes.PARTICIPANTS_MUC);
 		getRepository().createNode(channelJID, Mix.Nodes.PARTICIPANTS_MUC, owner,
 								   config, NodeType.leaf, null);
 		getRepository().addToRootCollection(channelJID, Mix.Nodes.PARTICIPANTS_MUC);

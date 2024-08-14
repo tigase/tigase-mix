@@ -17,10 +17,18 @@
  */
 package tigase.mix;
 
-import java.util.Collections;
-import java.util.Set;
+import tigase.pubsub.AccessModel;
+import tigase.pubsub.LeafNodeConfig;
+import tigase.pubsub.PublisherModel;
+import tigase.pubsub.SendLastPublishedItem;
+import tigase.pubsub.utils.IntegerOrMax;
+import tigase.xmpp.StanzaType;
+
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static tigase.pubsub.AbstractNodeConfig.PUBSUB;
 
 public class Mix {
 
@@ -45,6 +53,132 @@ public class Mix {
 		public static final Set<String> ALL_NODES = Collections.unmodifiableSet(
 				Stream.of(Mix.Nodes.CONFIG, Mix.Nodes.INFO, Mix.Nodes.MESSAGES, Mix.Nodes.PARTICIPANTS, ALLOWED, BANNED, AVATAR_DATA, AVATAR_METADATA, JIDMAP, PARTICIPANTS_MUC).collect(
 						Collectors.toSet()));
+
+		public static List<String> getNodeFromNodePresent(String nodePresent) {
+			if (nodePresent == null) {
+				return Collections.emptyList();
+			}
+			return switch (nodePresent) {
+				case "allowed" -> List.of(ALLOWED);
+				case "banned" -> List.of(BANNED);
+				case "jidmap-visible" -> List.of(JIDMAP);
+				case "avatar" -> List.of(AVATAR_DATA, AVATAR_METADATA);
+				case "participants" -> List.of(PARTICIPANTS);
+				case "information" -> List.of(INFO);
+				default -> Collections.emptyList();
+			};
+		}
+
+		public static String getNodePresentName(String node) {
+			if (node == null) {
+				return null;
+			}
+			
+			return switch (node) {
+				case ALLOWED -> "allowed";
+				case BANNED -> "banned";
+				case JIDMAP -> "jidmap-visible";
+				case AVATAR_DATA -> "avatar";
+				case AVATAR_METADATA -> "avatar";
+				case PARTICIPANTS -> "participants";
+				case INFO -> "information";
+				default -> null;
+			};
+		}
+
+		public static LeafNodeConfig getDefaultNodeConfig(String node) {
+			LeafNodeConfig config = DEF_CONFIGS.get(node);
+			if (config == null) {
+				throw new IllegalArgumentException("No default node config for " + node);
+			}
+			return new LeafNodeConfig(config.getNodeName(), config);
+		}
+
+		private static final Map<String, LeafNodeConfig> DEF_CONFIGS;
+
+		static {
+			Map<String,LeafNodeConfig> configs = new HashMap<>();
+			LeafNodeConfig config = new LeafNodeConfig(Mix.Nodes.CONFIG);
+			config.setValue(PUBSUB + "max_items", "1");
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model", PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			configs.put(config.getNodeName(), config);
+
+			config = new LeafNodeConfig(Mix.Nodes.PARTICIPANTS);
+			config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+			configs.put(config.getNodeName(), config);
+
+			config = new LeafNodeConfig(Mix.Nodes.MESSAGES);
+			config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
+			config.setValue(PUBSUB + "pubsub#persist_items", false);
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+			configs.put(config.getNodeName(), config);
+
+			config = new LeafNodeConfig(Mix.Nodes.INFO);
+			config.setValue(PUBSUB + "max_items", "1");
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+			configs.put(config.getNodeName(), config);
+
+			config = new LeafNodeConfig(Mix.Nodes.AVATAR_DATA);
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			config.setValue(PUBSUB + "notification_type", StanzaType.headline.name());
+			configs.put(config.getNodeName(), config);
+
+			config = new LeafNodeConfig(Mix.Nodes.AVATAR_METADATA);
+			config.setValue(PUBSUB + "max_items", "1");
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+			configs.put(config.getNodeName(), config);
+
+			config = new LeafNodeConfig(Mix.Nodes.JIDMAP);
+			config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+			configs.put(config.getNodeName(), config);
+
+			config = new LeafNodeConfig(Mix.Nodes.PARTICIPANTS_MUC);
+			config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			config.setValue(PUBSUB + "notification_type", StanzaType.normal.name());
+			configs.put(config.getNodeName(), config);
+
+			config = new LeafNodeConfig(Nodes.ALLOWED);
+			config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			config.setValue(PUBSUB + "notification_type", StanzaType.headline.name());
+			configs.put(config.getNodeName(), config);
+
+			config = new LeafNodeConfig(Nodes.BANNED);
+			config.setValue(PUBSUB + "max_items", IntegerOrMax.MAX);
+			config.setValue(PUBSUB + "access_model", AccessModel.whitelist.name());
+			config.setValue(PUBSUB + "publish_model",PublisherModel.publishers.name());
+			config.setValue(PUBSUB + "send_last_published_item", SendLastPublishedItem.never.name());
+			config.setValue(PUBSUB + "notification_type", StanzaType.headline.name());
+			configs.put(config.getNodeName(), config);
+
+			DEF_CONFIGS = Collections.unmodifiableMap(configs);
+		};
 	}
 
 }

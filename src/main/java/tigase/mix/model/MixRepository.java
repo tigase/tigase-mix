@@ -19,15 +19,20 @@ package tigase.mix.model;
 
 import tigase.component.PacketWriter;
 import tigase.component.exceptions.RepositoryException;
+import tigase.eventbus.EventBus;
+import tigase.eventbus.HandleEvent;
 import tigase.kernel.beans.Bean;
+import tigase.kernel.beans.Initializable;
 import tigase.kernel.beans.Inject;
+import tigase.kernel.beans.UnregisterAware;
 import tigase.mix.Affiliations;
 import tigase.mix.Mix;
 import tigase.mix.MixComponent;
-import tigase.pubsub.Affiliation;
-import tigase.pubsub.CollectionItemsOrdering;
-import tigase.pubsub.Subscription;
+import tigase.mix.MixConfig;
+import tigase.pubsub.*;
 import tigase.pubsub.exceptions.PubSubException;
+import tigase.pubsub.modules.NodeCreateModule;
+import tigase.pubsub.modules.NodeDeleteModule;
 import tigase.pubsub.modules.PublishItemModule;
 import tigase.pubsub.modules.RetractItemModule;
 import tigase.pubsub.repository.IAffiliations;
@@ -47,14 +52,20 @@ import tigase.xmpp.jid.BareJID;
 import tigase.xmpp.jid.JID;
 
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @Bean(name = "mixRepository", parent = MixComponent.class, active = true)
-public class MixRepository<T> implements IMixRepository, IPubSubRepository.IListener, CachedPubSubRepository.NodeAffiliationProvider<T> {
+public class MixRepository<T> implements IMixRepository, IPubSubRepository.IListener, CachedPubSubRepository.NodeAffiliationProvider<T>,
+										 Initializable, UnregisterAware {
 
 	private static final Logger log = Logger.getLogger(MixRepository.class.getCanonicalName());
+
+	@Inject
+	private MixConfig mixConfig;
 
 	@Inject (nullAllowed = true)
 	private MixLogic mixLogic;
@@ -70,9 +81,19 @@ public class MixRepository<T> implements IMixRepository, IPubSubRepository.IList
 
 	@Inject
 	private PacketWriter packetWriter;
+
+	@Inject
+	private EventBus eventBus;
 	
 	private final Cache<BareJID, ChannelConfiguration> channelConfigs = new LRUCacheWithFuture<>(1000);
 	private final Cache<ParticipantKey, Participant> participants = new LRUCacheWithFuture<>(4000);
+
+	@Override
+	public void beforeUnregister() {
+		if (eventBus != null) {
+			eventBus.unregisterAll(this);
+		}
+	}
 
 	@Override
 	public Optional<List<BareJID>> getAllowed(BareJID channelJID) throws RepositoryException {
@@ -117,6 +138,81 @@ public class MixRepository<T> implements IMixRepository, IPubSubRepository.IList
 	@Override
 	public IParticipant getParticipant(BareJID channelJID, String participantId) throws RepositoryException {
 		return getParticipant(new ParticipantKey(channelJID, participantId));
+	}
+
+	@Override
+	public void initialize() {
+		if (eventBus != null) {
+			eventBus.registerAll(this);
+		}
+	}
+
+	@HandleEvent
+	public void nodeCreated(NodeCreateModule.NodeCreatedEvent nodeCreatedEvent) {
+		if (!Objects.equals(nodeCreatedEvent.componentName, mixConfig.getComponentName())) {
+			return;
+		}
+		String nodePresent = Mix.Nodes.getNodePresentName(nodeCreatedEvent.node);
+		if (nodePresent == null) {
+			return;
+		}
+		
+		updateChannelConfig(nodeCreatedEvent.serviceJid, config -> {
+			List<String> nodesPresent = Optional.ofNullable(config.getNodesPresent())
+					.map(Arrays::asList)
+					.orElseGet(ArrayList::new);
+			if (nodesPresent.contains(nodePresent)) {
+				return;
+			}
+
+			nodesPresent.add(nodePresent);
+			config.setNodesPresent(nodesPresent.toArray(String[]::new));
+		});
+	}
+
+	@HandleEvent
+	public void nodeDeleted(NodeDeleteModule.NodeDeletedEvent nodeDeletedEvent) {
+		if (!Objects.equals(nodeDeletedEvent.componentName, mixConfig.getComponentName())) {
+			return;
+		}
+		String nodePresent = Mix.Nodes.getNodePresentName(nodeDeletedEvent.node);
+		if (nodePresent == null) {
+			return;
+		}
+
+		updateChannelConfig(nodeDeletedEvent.serviceJid, config -> {
+			List<String> nodesPresent = Optional.ofNullable(config.getNodesPresent())
+					.map(Arrays::asList)
+					.orElseGet(ArrayList::new);
+			if (!nodesPresent.contains(nodePresent)) {
+				return;
+			}
+
+			nodesPresent.remove(nodePresent);
+			config.setNodesPresent(nodesPresent.toArray(String[]::new));
+		});
+	}
+
+	protected synchronized void updateChannelConfig(BareJID serviceJid, Consumer<ChannelConfiguration> modifier) {
+		try {
+			ChannelConfiguration config = getChannelConfiguration(serviceJid);
+			if (config == null) {
+				return;
+			}
+
+			modifier.accept(config);
+
+			Element item = new Element("item");
+			item.addChild(config.toFormElement());
+			publishItemModule.publishItems(serviceJid, Mix.Nodes.CONFIG,
+										   JID.jidInstance(serviceJid),
+										   List.of(item),
+										   null);
+		} catch (RepositoryException ex) {
+			// ignoring..
+		} catch (PubSubException e) {
+			log.log(Level.WARNING, e, () -> "failed to update present nodes in channel " + serviceJid + " configuration");
+		}
 	}
 
 	protected IParticipant getParticipant(ParticipantKey key) throws RepositoryException {
@@ -441,8 +537,39 @@ public class MixRepository<T> implements IMixRepository, IPubSubRepository.IList
 		try {
 			ChannelConfiguration configuration = new ChannelConfiguration(item);
 			ChannelConfiguration oldConfiguration = channelConfigs.put(serviceJID, configuration);
-			if (oldConfiguration != null && oldConfiguration.getJidVisibility() != configuration.getJidVisibility()) {
-				jidVisibilityChanged(serviceJID, oldConfiguration.getJidVisibility(), configuration.getJidVisibility());
+			BareJID owner = configuration.getOwners().iterator().next();
+			if (oldConfiguration != null) {
+				if (oldConfiguration.getJidVisibility() != configuration.getJidVisibility()) {
+					jidVisibilityChanged(serviceJID, oldConfiguration.getJidVisibility(), configuration.getJidVisibility());
+				}
+				List<String> oldPresentNodes = Arrays.stream(oldConfiguration.getNodesPresent()).toList();
+				List<String> newPresentNodes = Arrays.stream(configuration.getNodesPresent()).toList();
+				List<String> removedPresentNodes = oldPresentNodes.stream().filter(Predicate.not(newPresentNodes::contains)).toList();
+				List<String> addedPresentNodes = newPresentNodes.stream().filter(Predicate.not(oldPresentNodes::contains)).toList();
+				for (String removedPresentNode : removedPresentNodes) {
+					for (String nodeToRemove : Mix.Nodes.getNodeFromNodePresent(removedPresentNode)) {
+						pubSubRepository.removeFromRootCollection(serviceJID, nodeToRemove);
+						try {
+							pubSubRepository.deleteNode(serviceJID, nodeToRemove);
+						} catch (RepositoryException ex) {
+							// ignoring exception as node could be already deleted...
+						}
+					}
+				}
+				for (String addedPresentNode : addedPresentNodes) {
+					for (String nodeToAdd : Mix.Nodes.getNodeFromNodePresent(addedPresentNode)) {
+						try {
+							if (pubSubRepository.getNodeConfig(serviceJID, nodeToAdd) == null) {
+								LeafNodeConfig nodeConfig = Mix.Nodes.getDefaultNodeConfig(nodeToAdd);
+								pubSubRepository.createNode(serviceJID, nodeToAdd, owner, nodeConfig, NodeType.leaf,
+															null);
+								pubSubRepository.addToRootCollection(serviceJID, nodeToAdd);
+							}
+						} catch (RepositoryException ex) {
+							log.log(Level.WARNING, ex, () -> "could not create node " + nodeToAdd + " for channel " + serviceJID);
+						}
+					}
+				}
 			}
 		} catch (PubSubException|RepositoryException ex) {
 			log.log(Level.WARNING, "Could not update configuration of channel " + serviceJID, ex);
