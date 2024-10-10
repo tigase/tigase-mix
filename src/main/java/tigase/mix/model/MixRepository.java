@@ -160,6 +160,7 @@ public class MixRepository<T> implements IMixRepository, IPubSubRepository.IList
 		updateChannelConfig(nodeCreatedEvent.serviceJid, config -> {
 			List<String> nodesPresent = Optional.ofNullable(config.getNodesPresent())
 					.map(Arrays::asList)
+					.map(ArrayList::new)
 					.orElseGet(ArrayList::new);
 			if (nodesPresent.contains(nodePresent)) {
 				return;
@@ -183,6 +184,7 @@ public class MixRepository<T> implements IMixRepository, IPubSubRepository.IList
 		updateChannelConfig(nodeDeletedEvent.serviceJid, config -> {
 			List<String> nodesPresent = Optional.ofNullable(config.getNodesPresent())
 					.map(Arrays::asList)
+					.map(ArrayList::new)
 					.orElseGet(ArrayList::new);
 			if (!nodesPresent.contains(nodePresent)) {
 				return;
