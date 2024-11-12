@@ -26,7 +26,10 @@ import tigase.mix.IMixComponent;
 import tigase.component.modules.impl.AdHocCommandModule;
 import tigase.mix.model.IMixRepository;
 import tigase.mix.model.MixLogic;
+import tigase.pubsub.AbstractNodeConfig;
+import tigase.pubsub.exceptions.PubSubException;
 import tigase.pubsub.repository.IPubSubRepository;
+import tigase.pubsub.utils.PubSubLogic;
 import tigase.server.Packet;
 import tigase.xml.Element;
 import tigase.xmpp.Authorization;
@@ -202,6 +205,23 @@ public class DiscoveryModule extends tigase.pubsub.modules.DiscoveryModule {
 				// in any other case just use default
 				return super.prepareDiscoItems(serviceJID, nodeName, senderJID, rsm);
 			}
+		}
+	}
+
+	@Override
+	protected boolean isNodeDiscoverable(BareJID serviceJid, AbstractNodeConfig nodeConfig, JID senderJid) throws ComponentException, RepositoryException {
+		if (!super.isNodeDiscoverable(serviceJid, nodeConfig, senderJid)) {
+			return false;
+		}
+
+		try {
+			pubSubLogic.checkPermission(serviceJid, nodeConfig.getNodeName(), senderJid, PubSubLogic.Action.subscribe);
+			return true;
+		} catch (PubSubException ex) {
+			return switch (ex.getErrorCondition()) {
+				case FORBIDDEN, NOT_AUTHORIZED, NOT_ALLOWED -> false;
+				default -> throw ex;
+			};
 		}
 	}
 
