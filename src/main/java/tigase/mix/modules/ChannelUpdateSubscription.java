@@ -86,7 +86,7 @@ public class ChannelUpdateSubscription extends AbstractPubSubModule {
 							it.remove();
 							break;
 						}
-						if (subscriptions.getSubscription(senderJID) == null) {
+						if (subscriptions.getSubscription(senderJID) == Subscription.none) {
 							subscriptions.addSubscriberJid(senderJID, Subscription.subscribed);
 							getRepository().update(channelJID, node, subscriptions);
 						}
@@ -98,7 +98,7 @@ public class ChannelUpdateSubscription extends AbstractPubSubModule {
 			Element responseContent = new Element("update-subscription", new String[]{"xmlns", "jid"},
 												  new String[]{Mix.CORE1_XMLNS, senderJID.toString()});
 			if (nodes != null) {
-				nodes.stream().map(node -> new Element("subscribe", new String[]{"node "}, new String[]{node})).forEach(responseContent::addChild);
+				nodes.stream().map(node -> new Element("subscribe", new String[]{"node"}, new String[]{node})).forEach(responseContent::addChild);
 			}
 
 			packetWriter.write(packet.okResult(responseContent, 0));
