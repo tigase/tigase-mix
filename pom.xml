@@ -65,25 +65,6 @@
                             <execution>
                                 <id>output-html</id>
                             </execution>
-                            <execution>
-                                <id>output-docbook</id>
-                            </execution>
-                        </executions>
-                    </plugin>
-
-                    <plugin>
-                        <groupId>com.agilejava.docbkx</groupId>
-                        <artifactId>docbkx-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>generate-webhelp</id>
-                            </execution>
-                            <execution>
-                                <id>generate-pdf</id>
-                            </execution>
-                            <execution>
-                                <id>generate-html</id>
-                            </execution>
                         </executions>
                     </plugin>
                 </plugins>
